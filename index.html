@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Corre por Cali</title>
+<style>
+:root{--bg:#fff4d6;--ink:#1d2a44;--card:#fff;--accent:#e8512f;--ok:#1f8a5b;--bad:#c23b3b;--muted:#5d6785;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b1a2e;--ink:#f5f0e1;--card:#2a2945;--muted:#a9b0cc}}
+:root[data-theme="dark"]{--bg:#1b1a2e;--ink:#f5f0e1;--card:#2a2945;--muted:#a9b0cc}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px;-webkit-user-select:none;user-select:none}
+main{width:100%;max-width:640px}
+h1{font-family:Georgia,serif;font-size:2rem;margin:4px 0 12px}
+canvas{width:100%;display:block;aspect-ratio:640/240;border-radius:16px;border:3px solid var(--ink);touch-action:manipulation;cursor:pointer}
+#p{margin-top:14px}
+#p p{margin:0 0 12px;line-height:1.45;color:var(--muted)}
+#p .q{font-family:Georgia,serif;font-size:1.3rem;line-height:1.25;color:var(--ink);animation:pop .4s both}
+button{font:inherit;cursor:pointer;width:100%;text-align:left;border:2px solid var(--ink);border-radius:14px;background:var(--card);color:var(--ink);padding:13px 15px;margin-bottom:9px;font-size:1rem;animation:pop .4s both}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.go{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700;text-align:center}
+.ok{background:var(--ok)!important;border-color:var(--ok)!important;color:#fff!important;animation:bounce .5s}
+.bad{background:var(--bad)!important;border-color:var(--bad)!important;color:#fff!important;animation:shake .45s}
+@keyframes pop{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes bounce{40%{transform:scale(1.05)}}
+@keyframes shake{25%{transform:translateX(-8px)}50%{transform:translateX(8px)}75%{transform:translateX(-5px)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<main>
+<h1>Corre por Cali</h1>
+<canvas id="c" aria-label="Juego de correr y saltar obstáculos"></canvas>
+<div id="p"></div>
+</main>
+<script>
+var QS=[
+{q:"¿Cuántos homicidios cerró Cali en 2025, según el Observatorio de Seguridad?",o:["1.065","765","465","1.465"],a:0,n:"1.065, un 14 % más que en 2024."},
+{q:"Procuraduría: ¿hasta qué parte de su salario habrían exigido a contratistas de la Alcaldía para conservar el cargo?",o:["10 %","20 %","40 %","80 %"],a:2,n:"Hasta el 40 % mensual (investigación en curso)."},
+{q:"¿Cuántos homicidios se registraron en Cali entre enero y mayo de 2026?",o:["157","457","257","857"],a:1,n:"457, 31 más que en el mismo periodo de 2025."},
+{q:"¿Qué fecha es la más retadora para las autoridades de Cali por la cantidad de homicidios?",o:["Día de la Madre","Noche de Velitas","Año Nuevo","Feria de Cali"],a:0,n:"El Día de la Madre, según el balance de seguridad."},
+{q:"¿En qué porcentaje de los homicidios de 2026 se han usado armas de fuego?",o:["Menos del 20 %","Cerca del 40 %","Cerca del 60 %","Más del 80 %"],a:3,n:"En más del 80 %, según el Observatorio de Seguridad."},
+{q:"Entre enero y mayo de 2026 el hurto a comercios pasó de 157 a 47 casos. ¿Cuánto se redujo?",o:["10 %","30 %","50 %","70 %"],a:3,n:"Cerca de un 70 %. Mientras tanto, el homicidio subió."}
+];
+var cv=document.getElementById("c"),ctx=cv.getContext("2d"),P=document.getElementById("p"),W=640,H=240,G=196;
+var dpr=Math.min(2,window.devicePixelRatio||1);cv.width=W*dpr;cv.height=H*dpr;ctx.scale(dpr,dpr);
+var st,sp,score,lives,qi,qt,obs,dist,py,vy,inv,hits,wx=0,t=0,last=0;
+function reset(){st="play";sp=250;score=0;lives=3;qi=0;qt=0;obs=[];dist=330;py=0;vy=0;inv=0;hits=0;P.innerHTML='<p>Salta los obstáculos con un toque o la barra espaciadora. Cada tanto aparece una pregunta.</p>'}
+function screen(h){P.innerHTML=h}
+function ready(){st="ready";screen('<p>Corre bajo el sol de Cali, esquiva las rocas y responde 6 preguntas sobre la seguridad en Cali y una de la Procuraduría. Tienes 3 vidas.</p><button class="go" id="g">Empezar</button>');document.getElementById("g").onclick=reset}
+function ask(){
+  st="ask";obs=[];var d=QS[qi];
+  screen('<p class="q">'+(qi+1)+'/6. '+d.q+'</p><div id="o"></div><p id="fb"></p>');
+  d.o.forEach(function(x,k){var b=document.createElement("button");b.textContent=x;b.style.animationDelay=(.1*k)+"s";b.onclick=function(){answer(k,b)};document.getElementById("o").appendChild(b)});
+}
+function answer(k,b){
+  var d=QS[qi],bs=document.querySelectorAll("#o button");bs.forEach(function(x){x.disabled=true});
+  if(k===d.a){hits++;score+=200;b.classList.add("ok")}else{b.classList.add("bad");bs[d.a].classList.add("ok")}
+  document.getElementById("fb").textContent=(k===d.a?"¡Correcto! ":"Incorrecto. ")+d.n;
+  setTimeout(function(){qi++;if(qi>=QS.length)return win();st="play";qt=0;dist=350;P.innerHTML='<p>¡Sigue corriendo!</p>'},2200);
+}
+function win(){st="win";screen('<p class="q">¡Llegaste a la meta!</p><p>Acertaste '+hits+' de 6 preguntas. Puntaje: '+Math.floor(score)+'</p><button class="go" id="g">Jugar de nuevo</button>');document.getElementById("g").onclick=reset}
+function over(){st="over";screen('<p class="q">Te quedaste sin vidas</p><p>Llegaste a la pregunta '+(qi+1)+' de 6 con '+Math.floor(score)+' puntos.</p><button class="go" id="g">Intentar de nuevo</button>');document.getElementById("g").onclick=reset}
+function jump(){if(st==="play"&&py===0)vy=660}
+addEventListener("keydown",function(e){if(e.code==="Space"||e.code==="ArrowUp"){e.preventDefault();jump()}});
+cv.addEventListener("pointerdown",function(e){e.preventDefault();jump()});
+function update(dt){
+  sp=Math.min(430,sp+4*dt);score+=sp*dt/40;wx+=sp*dt;qt+=dt;
+  if(qt>=5){ask();return}
+  vy-=1950*dt;py+=vy*dt;if(py<=0){py=0;vy=0}
+  if(inv>0)inv-=dt;
+  dist-=sp*dt;
+  if(dist<=0){obs.push({x:W+10,w:18+Math.random()*16,h:24+Math.random()*22});dist=340+Math.random()*260+sp*.3}
+  for(var i=obs.length-1;i>=0;i--){
+    var o=obs[i];o.x-=sp*dt;if(o.x<-60){obs.splice(i,1);continue}
+    if(inv<=0&&66<o.x+o.w-3&&86>o.x+3&&G-py-40<G&&G-py>G-o.h+3){
+      lives--;inv=1.6;if(lives<=0){over();return}
+    }
+  }
+}
+function hill(x,a,f,b,ph){return a-b*Math.sin((x+wx*ph)*f)}
+function scene(){
+  var g=ctx.createLinearGradient(0,0,0,G);g.addColorStop(0,"#4fc3f7");g.addColorStop(1,"#d6f3ff");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  var sg=ctx.createRadialGradient(540,50,10,540,50,90);sg.addColorStop(0,"rgba(255,230,120,.9)");sg.addColorStop(1,"rgba(255,230,120,0)");ctx.fillStyle=sg;ctx.fillRect(400,0,240,150);
+  ctx.save();ctx.translate(540,50);ctx.rotate(t*.35);ctx.strokeStyle="#ffb300";ctx.lineWidth=4;
+  for(var i=0;i<14;i++){ctx.rotate(Math.PI/7);ctx.beginPath();ctx.moveTo(32,0);ctx.lineTo(i%2?46:54,0);ctx.stroke()}
+  ctx.restore();ctx.fillStyle="#ffd23f";ctx.beginPath();ctx.arc(540,50,27,0,7);ctx.fill();ctx.strokeStyle="#ffb300";ctx.lineWidth=3;ctx.stroke();
+  ctx.fillStyle="#7fcf9c";ctx.beginPath();ctx.moveTo(0,H);for(var x=0;x<=W;x+=8)ctx.lineTo(x,hill(x,140,.012,28,.1));ctx.lineTo(W,H);ctx.fill();
+  var sx=700-((wx*.1)%780);ctx.fillStyle="#f4f1e8";var sy=hill(sx,140,.012,28,.1);
+  ctx.fillRect(sx-2,sy-26,4,18);ctx.fillRect(sx-9,sy-24,18,3);ctx.fillRect(sx-4,sy-31,8,6);ctx.fillStyle="#d9d3c0";ctx.fillRect(sx-6,sy-8,12,8);
+  var tx=700-((wx*.1+390)%780),ty=hill(tx,140,.012,28,.1);
+  ctx.fillStyle="#7fcf9c";ctx.beginPath();ctx.moveTo(tx-46,ty+6);ctx.lineTo(tx-8,ty-20);ctx.lineTo(tx+8,ty-20);ctx.lineTo(tx+46,ty+6);ctx.fill();
+  ctx.fillStyle="#f4f1e8";
+  [[-14,22,ty-14],[0,30,ty-20],[14,22,ty-14]].forEach(function(c){var cx=tx+c[0],h=c[1],b=c[2];ctx.fillRect(cx-1.5,b-h,3,h);ctx.fillRect(cx-h*.3,b-h*.75,h*.6,3)});
+  ctx.fillStyle="#3fa466";ctx.beginPath();ctx.moveTo(0,H);for(x=0;x<=W;x+=8)ctx.lineTo(x,hill(x,170,.02,14,.25));ctx.lineTo(W,H);ctx.fill();
+  ctx.fillStyle="#e3ab5c";ctx.fillRect(0,G,W,H-G);ctx.fillStyle="#b9803a";ctx.fillRect(0,G,W,3);
+  for(x=-(wx%48);x<W;x+=48)ctx.fillRect(x+14,G+14,12,3);
+}
+function box(x,y,w,h,c,o){ctx.fillStyle=c;ctx.fillRect(x,y,w,h)}
+function player(){
+  if(inv>0&&Math.floor(t*14)%2)return;
+  var x=60,top=G-py-44,run=(st==="play"&&py===0),ph=Math.floor(t*14)%2,l1=run&&ph?5:8,l2=run&&!ph?5:8;
+  var parts=[[8,36,5,l1,"#7a4a24"],[16,36,5,l2,"#7a4a24"],[7,24,16,12,"#fff"],[7,32,16,4,"#7a4a24"],[run&&ph?2:4,26,4,9,"#fff"],[4,8,22,16,"#fff"],[3,0,22,9,"#2f6fd6"],[20,6,13,4,"#1f4fa8"]];
+  ctx.fillStyle="#1d2a44";parts.forEach(function(q){ctx.fillRect(x+q[0]-2,top+q[1]-2,q[2]+4,q[3]+4)});
+  parts.forEach(function(q){box(x+q[0],top+q[1],q[2],q[3],q[4])});
+  box(x+19,top+13,3,4,"#1d2a44");
+}
+function draw(){
+  scene();
+  (obs||[]).forEach(function(o){ctx.fillStyle="#1d2a44";ctx.fillRect(o.x-2,G-o.h-2,o.w+4,o.h+4);ctx.fillStyle="#8a6a45";ctx.fillRect(o.x,G-o.h,o.w,o.h);ctx.fillStyle="#b08d62";ctx.fillRect(o.x,G-o.h,o.w,5)});
+  player();
+  ctx.font="bold 18px monospace";ctx.textAlign="left";ctx.fillStyle="#d62839";ctx.fillText("♥".repeat(Math.max(0,lives||0)),14,28);
+  ctx.fillStyle="#1d2a44";ctx.textAlign="left";ctx.fillText(String(Math.floor(score||0)).padStart(5,"0"),14,52);
+  if(st==="ask"){ctx.fillStyle="rgba(29,42,68,.55)";ctx.fillRect(0,0,W,H);ctx.fillStyle="#fff";ctx.textAlign="center";ctx.font="bold 28px Trebuchet MS, sans-serif";ctx.fillText("¡Pregunta!",W/2,H/2)}
+}
+function loop(ts){var dt=Math.min(.05,(ts-last)/1000||0);last=ts;t+=dt;if(st==="play")update(dt);draw();requestAnimationFrame(loop)}
+ready();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
